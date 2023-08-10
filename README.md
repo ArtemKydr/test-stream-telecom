@@ -1,11 +1,3 @@
-<p align="center">
-    <a href="https://github.com/yiisoft" target="_blank">
-        <img src="https://avatars0.githubusercontent.com/u/993323" height="100px">
-    </a>
-    <h1 align="center">Yii 2 Basic Project Template</h1>
-    <br>
-</p>
-
 Yii 2 Basic Project Template is a skeleton [Yii 2](http://www.yiiframework.com/) application best for
 rapidly creating small projects.
 
@@ -17,6 +9,105 @@ features to your application.
 [![Total Downloads](https://img.shields.io/packagist/dt/yiisoft/yii2-app-basic.svg)](https://packagist.org/packages/yiisoft/yii2-app-basic)
 [![build](https://github.com/yiisoft/yii2-app-basic/workflows/build/badge.svg)](https://github.com/yiisoft/yii2-app-basic/actions?query=workflow%3Abuild)
 
+API METHODS
+-------------------
+1) /api/v1/books-api/set-book-with-authors - setting book with authors (only POST)
+example req:
+{
+"title":"Преступление и наказание",
+"authors":[
+{
+"first_name":"Федор",
+"last_name":"Достоевский"
+},
+{
+"first_name":"Артемий",
+"last_name":"Кудрявцев"
+},
+{
+"first_name":"Иван",
+"last_name":"Иванов"
+},
+{
+"first_name":"Федор",
+"last_name":"Достоевский"
+}
+]
+}
+
+example res:
+{
+"status": 200,
+"message": "Data successfully saved",
+"errors": null
+} ||
+{
+"status": 400,
+"message": "Data saving failed",
+"errors": ["Failed to save author: {\"last_name\":[\"\Н\е\о\б\х\о\д\и\м\о \з\а\п\о\л\н\и\т\ь \«Last Name\».\"]}"
+]
+}
+
+2) /api/v1/books-api/get-all-books - getting all books with authors (only GET)
+}
+example res:
+   {
+   "status": 200,
+   "data": [
+   {
+   "id": "1",
+   "title": "Преступление и наказание",
+   "author": "Достоевский Федор",
+   "status": "rented"
+   },
+]
+}
+
+3) /api/v1/rent-api/issue-book - issuing book with author (only POST)
+   example req:
+   {
+   "title":"Преступление и наказание",
+   "author":{
+   "first_name":"Федор",
+   "last_name":"Достоевский"
+   },
+   "reader":{
+   "first_name":"Мария",
+   "last_name":"Машина",
+   "email":"admin@mail.ru"   
+   }
+}
+
+example res:
+{
+"status": 400,
+"message": "The book is not in the library/in stock",
+"errors": []
+}
+
+{
+"status": 200,
+"message": "Book successfully issued",
+"error": null
+}
+
+4) /api/v1/write-off-api/write-off-book - write-off book with authors (only POST)
+   example req:
+   {
+   "title":"Преступление и наказание",
+   "author":{
+   "first_name":"Федор",
+   "last_name":"Достоевский"
+   },
+   "reason":"Книга порвана"
+   }
+
+example res:
+{
+"status": 200,
+"message": "Book successfully written off",
+"error": null
+}
 DIRECTORY STRUCTURE
 -------------------
 
@@ -78,7 +169,7 @@ Set cookie validation key in `config/web.php` file to some random secret string:
 You can then access the application through the following URL:
 
 ~~~
-http://localhost/basic/web/
+http://test-stream-telecom/web/
 ~~~
 
 
