@@ -20,9 +20,9 @@ class RentApiController extends CommonApiController
         if (Yii::$app->request->isPost) {
             $postData = Yii::$app->request->post();
 
-            if ($this->checkExistingBook($postData)) {
+            if ($this->checkExistingBook($postData['author'],$postData['title'])) {
                 $readerModel = new Readers();
-                $this->setReader($readerModel, $postData);
+                $this->setReader($readerModel, $postData['reader']);
                 $this->IssueBookForReader();
                 return [
                     'status' => 200,
@@ -33,6 +33,7 @@ class RentApiController extends CommonApiController
                 return [
                     'status' => 400,
                     'message' => "The book is not in the library/in stock",
+                    'errors' => $this->getErrors(),
                 ];
             }
         } else {
@@ -51,14 +52,18 @@ class RentApiController extends CommonApiController
             'book_id'=>$this->existingBookForReader->id,
             'reader_id'=>$this->readerForSet->id,
         ]);
-        $model->save();
+        $updatingRent = $model->save();
 
-        $this->updateBookForReader();
-        $this->existingBookForReader->status_id = 2;
-        $this->existingBookForReader->rent_id = $model->id;
-        if ($this->existingBookForReader->save() && $this->updateBookForReader()) {
+        $updatingBookStatus = $this->updateBookForReader(
+            $this->existingBookForReader,
+            [
+            'status_id'=>$this->defaultBookIssuedStatusId,
+            'rent_id'=>$model->id
+            ]);
+        if ($updatingBookStatus && $updatingRent) {
             return true;
         } else {
+            $this->addError('Failed to save author: ' . json_encode($model->errors));
             return false;
         }
     }

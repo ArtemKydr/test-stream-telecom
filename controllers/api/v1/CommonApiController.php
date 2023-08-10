@@ -10,49 +10,21 @@ use app\models\Readers;
 use app\models\WriteOffReasons;
 use app\models\WriteOffs;
 use Yii;
+use yii\base\Model;
+use yii\db\Exception;
+use yii\helpers\ArrayHelper;
 use yii\web\Response;
-
-// TODO Разделение на контроллеры может быть гибким и зависит от конкретных потребностей вашего приложения. Однако, вот пример возможной структуры:
-//
-//BooksApiController: Основной контроллер для работы с книгами. Методы для получения списка книг и связанных данных могут остаться здесь.
-//
-//RentApiController: Контроллер для операций по выдаче книг читателям. Содержит методы для выдачи книг и связанные операции.
-//
-//WriteOffApiController: Контроллер для операций списания книг. Включает методы для списания книг и связанных действий.
-//
-//AuthorsApiController: Контроллер для операций с авторами. Включает методы для добавления и управления авторами.
-//
-//CommonApiController: Этот контроллер может содержать общие методы, которые могут быть полезны в разных частях приложения, например, методы для работы с читателями.
-//
-//Такая структура позволит разделить функциональность на более мелкие и понятные блоки, сократит зависимости между разными операциями и облегчит расширение в будущем.
-//
-//Примеры методов для каждого из контроллеров:
-//
-//BooksApiController:
-//
-//actionGetAllBooks()
-//actionSetBookWithAuthors()
-//RentApiController:
-//
-//actionIssueBook()
-//WriteOffApiController:
-//
-//actionWriteOffBook()
-//AuthorsApiController:
-//
-//Методы для управления авторами (создание, редактирование, удаление и т.д.)
-//CommonApiController:
-//
-//Методы для работы с читателями (создание, редактирование, удаление и т.д.)
-//Эта структура, конечно, предложение, и вы можете адаптировать ее под требования вашего приложения. Важно помнить о принципе единственной ответственности, чтобы каждый контроллер отвечал за определенные аспекты функциональности.
-//TODO ДОБАВИТЬ ТАБЛИЦУ НАЗВАНИЙ
 
 class CommonApiController extends MainController
 {
-    public $authorForSet;
+    public $authorsForSetBooks = [];
     public $readerForSet;
+
+    public $errors = [];
     public $existingBookForReader;
     public $defaultBookAvailableStatusId = 1;
+    public $defaultBookIssuedStatusId = 2;
+    public $defaultBookWrittenOffStatusId = 3;
 
     public function behaviors()
     {
@@ -80,40 +52,89 @@ class CommonApiController extends MainController
     }
 
 
-    protected function setBook($model, $title, $authorId)
+    protected function setBooks($title, $authors)
     {
-        $model->title = $title;
-        $model->author_id = $authorId;
-        $model->status_id = $this->defaultBookAvailableStatusId;
-
-        return $model->save();
+        try {
+            foreach ($authors as $author) {
+                if (!$this->setBook($title, $author)) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (\yii\db\Exception $e) {
+            $this->addError('Failed to save author: ' . json_encode($e));
+            }
     }
 
-    protected function setAuthor($model, $author)
+    protected function setBook($title, $author)
     {
-        $existingAuthor = Authors::findOne(['name' => $author]);
+        $model = new Books();
+        $model->title = $title;
+        $model->author_id = $author->id;
+        $model->status_id = $this->defaultBookAvailableStatusId;
+        if ($model->save()) {
+            return true;
+        } else {
+            $this->addError('Failed to save author: ' . json_encode($model->errors));
+            return false;
+        }
+    }
+
+    protected function setAuthors($authors)
+    {
+        $uniqueAuthors = [];
+
+        foreach ($authors as $author) {
+            $fullName = $author["first_name"] . " " . $author["last_name"];
+            $uniqueAuthors[$fullName] = $author;
+        }
+
+        $uniqueAuthors = array_values($uniqueAuthors);
+
+        try{
+            foreach ($uniqueAuthors as $author){
+                if(!$this->setAuthor($author)){
+                    return false;
+                }
+            }
+            return true;
+        } catch (\yii\db\Exception $e) {
+            $this->addError('Failed to save author: ' . json_encode($e));
+        }
+    }
+
+    protected function setAuthor($author)
+    {
+        $model = new Authors();
+        $existingAuthor = Authors::findOne(['first_name' => $author['first_name'], 'last_name' => $author['last_name']]);
 
         if (!$existingAuthor) {
-            $model->name = $author;
-
+            $model->setAttributes([
+                'first_name' => trim($author['first_name']),
+                'last_name' => trim($author['last_name'])
+            ]);
             if ($model->save()) {
-                $this->authorForSet = $model;
+                array_push($this->authorsForSetBooks, $model);
                 return true;
             } else {
+                $this->addError('Failed to save author: ' . json_encode($model->errors));
                 return false;
             }
-        } else {
-            $this->authorForSet = $existingAuthor;
+        }else{
+            array_push($this->authorsForSetBooks, $existingAuthor);
             return true;
         }
     }
 
-    protected function checkExistingBook($data, $includeStatus = true)
+    protected function checkExistingBook($author, $title, $includeStatus = true)
     {
-        $authorId = Authors::find()->select('id')->where(['name' => $data['author']])->scalar();
+        $authorId = Authors::find()->select('id')->where([
+            'first_name' => $author['first_name'],
+            'last_name' => $author['last_name']
+            ])->scalar();
 
         $conditions = [
-            'title' => $data['title'],
+            'title' => $title,
             'author_id' => $authorId,
         ];
 
@@ -134,18 +155,18 @@ class CommonApiController extends MainController
     protected function setReader($model, $reader)
     {
         $existingReader = Readers::findOne([
-            'first_name' => $reader['first_name'],
-            'last_name' => $reader['last_name'],
             'email' => $reader['email'],
         ]);
 
         if (!$existingReader) {
             $model->setAttributes($reader);
 
+
             if ($model->save()) {
-                $this->readerForSet = $model->id;
+                $this->readerForSet = $model;
                 return true;
             } else {
+                $this->addError('Failed to save author: ' . json_encode($model->errors));
                 return false;
             }
         } else {
@@ -202,9 +223,20 @@ class CommonApiController extends MainController
         }
     }
 
-    protected function updateBookForReader($model, $data)
+    protected function updateBookForReader($model, $params)
     {
+        $model->setAttributes($params);
+        return $model->save();
+    }
 
+    protected function addError($error)
+    {
+        $this->errors[] = $error;
+    }
+
+    protected function getErrors()
+    {
+        return $this->errors;
     }
 
 

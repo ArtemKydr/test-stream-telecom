@@ -9,7 +9,7 @@ class Authors extends ActiveRecord
     public function rules()
     {
         return [
-            [['name'], 'required'],
+            [['first_name', 'last_name'], 'required'],
         ];
     }
 }

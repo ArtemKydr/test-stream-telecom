@@ -18,44 +18,49 @@ class BooksApiController extends CommonApiController
     public function actionGetAllBooks()
     {
         $books = Books::find()
-            ->select(['books.id', 'title', 'authors.name AS authors', 'statuses.name AS status'])
+            ->select(['books.id', 'title', "CONCAT(authors.last_name,' ',authors.first_name) AS author", 'statuses.name AS status'])
             ->leftJoin('authors','author_id = authors.id')
             ->leftJoin('statuses','status_id = statuses.id')
             ->distinct(['id', 'author_id'])
             ->asArray()
             ->all();
-        return $books;
+        if($books){
+            return [
+                'status' => 200,
+                'data'=> $books
+            ];
+        }else{
+            return [
+                'status' => 400,
+                'data'=> 'No books in library :('
+            ];
+        }
     }
 
-    public function actionSetBookWithAuthors()
-    {
+    public function actionSetBookWithAuthors(){
         if (Yii::$app->request->isPost) {
             $postData = Yii::$app->request->post();
-            $authorModel = new Authors();
-            $bookModel = new Books();
-
-            if ($this->setAuthor($authorModel, $postData['author']) && $this->setBook($bookModel, $postData['title'], $this->authorForSet->id)) {
+            if ($this->setAuthors($postData['authors']) && $this->setBooks($postData['title'], $this->authorsForSetBooks)) {
                 return [
                     'status' => 200,
                     'message' => 'Data successfully saved',
-                    'authorErrors' => null,
-                    'bookErrors' => null
+                    'errors' => null,
                 ];
             } else {
                 return [
                     'status' => 400,
                     'message' => 'Data saving failed',
-                    'authorErrors' => $authorModel->getErrors(),
-                    'bookErrors' => $bookModel->getErrors()
+                    'errors' => $this->getErrors(),
                 ];
             }
         } else {
             return [
                 'status' => 400,
-                'message' => 'Try POST request'
+                'message' => 'Try POST request',
             ];
         }
     }
+
 
 
 
