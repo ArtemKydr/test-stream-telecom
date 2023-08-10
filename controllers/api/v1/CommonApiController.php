@@ -10,9 +10,6 @@ use app\models\Readers;
 use app\models\WriteOffReasons;
 use app\models\WriteOffs;
 use Yii;
-use yii\base\Model;
-use yii\db\Exception;
-use yii\helpers\ArrayHelper;
 use yii\web\Response;
 
 class CommonApiController extends MainController
@@ -84,7 +81,7 @@ class CommonApiController extends MainController
     {
         $uniqueAuthors = [];
 
-        foreach ($authors as $author) {
+        foreach ($authors as $author) { // сохраняем только уникальных авторов
             $fullName = $author["first_name"] . " " . $author["last_name"];
             $uniqueAuthors[$fullName] = $author;
         }
@@ -106,7 +103,7 @@ class CommonApiController extends MainController
     protected function setAuthor($author)
     {
         $model = new Authors();
-        $existingAuthor = Authors::findOne(['first_name' => $author['first_name'], 'last_name' => $author['last_name']]);
+        $existingAuthor = Authors::findOne(['first_name' => $author['first_name'], 'last_name' => $author['last_name']]); //проверяем есть ли уже такой автор
 
         if (!$existingAuthor) {
             $model->setAttributes([
@@ -114,14 +111,14 @@ class CommonApiController extends MainController
                 'last_name' => trim($author['last_name'])
             ]);
             if ($model->save()) {
-                array_push($this->authorsForSetBooks, $model);
+                array_push($this->authorsForSetBooks, $model); //добавляем в кэш, чтобы потом переиспользовать при сохранении книги
                 return true;
             } else {
                 $this->addError('Failed to save author: ' . json_encode($model->errors));
                 return false;
             }
         }else{
-            array_push($this->authorsForSetBooks, $existingAuthor);
+            array_push($this->authorsForSetBooks, $existingAuthor);//добавляем в кэш, чтобы потом переиспользовать при сохранении книги
             return true;
         }
     }
@@ -138,7 +135,7 @@ class CommonApiController extends MainController
             'author_id' => $authorId,
         ];
 
-        if ($includeStatus) {
+        if ($includeStatus) { //функция используется в нескольких местах. Параметр добавлен чтобы проверять необходимую книгу по статусу
             $conditions['status_id'] = $this->defaultBookAvailableStatusId;
         }
 
@@ -181,7 +178,7 @@ class CommonApiController extends MainController
             $transaction = Yii::$app->db->beginTransaction();
 
             try {
-                $this->existingBookForReader->status_id = 3;
+                $this->existingBookForReader->status_id = $this->defaultBookWrittenOffStatusId;
 
                 $modelWriteOffReasons = $this->checkExistingWriteOffReason($data['reason']);
 
@@ -218,6 +215,7 @@ class CommonApiController extends MainController
             if ($model->save()) {
                 return $model->id;
             } else {
+                $this->addError('Failed to save author: ' . json_encode($model->errors));
                 return null; // Ошибка при сохранении причины списания
             }
         }

@@ -6,13 +6,6 @@ use app\models\Readers;
 use app\models\Rent;
 use Yii;
 
-
-//RentApiController:
-//
-//actionIssueBook()
-//WriteOffApiController:
-
-
 class RentApiController extends CommonApiController
 {
     public function actionIssueBook()

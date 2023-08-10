@@ -2,16 +2,9 @@
 
 namespace app\controllers\api\v1;
 
-use app\models\Authors;
+
 use app\models\Books;
 use Yii;
-
-//
-//BooksApiController:
-//
-//actionGetAllBooks()
-//actionSetBookWithAuthors()
-
 
 class BooksApiController extends CommonApiController
 {
